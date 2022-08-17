@@ -1,3 +1,7 @@
+# Near justArt Market Contract
+
+This repo contains the contract source code to the [repo](https://github.com/Houselearn/Near-justart-market)
+
 # Prerequsities
 
 Install the next tools:
