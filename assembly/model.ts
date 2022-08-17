@@ -1,4 +1,4 @@
-import { PersistentUnorderedMap, context, PersistentMap, u128 } from "near-sdk-as";
+import {PersistentUnorderedMap, context, PersistentMap, u128, logging} from "near-sdk-as";
 
 /**
  * This class represents a item that can be listed on a marketplace.
@@ -7,7 +7,7 @@ import { PersistentUnorderedMap, context, PersistentMap, u128 } from "near-sdk-a
  * {@link nearBindgen} - it's a decorator that makes this class serializable so it can be persisted on the blockchain level. 
  */
 
-enum tranType {
+enum TranType {
     ADD,
     REMOVE,
     BUY
@@ -16,7 +16,7 @@ enum tranType {
 @nearBindgen
 class Transaction {
     id: number;
-    type: tranType;
+    type: TranType;
     from: string;
     price: u128;
     createdAt: u64;
@@ -32,7 +32,9 @@ export class Item {
     price: u128;
     owner: string;
     isItemListed: bool;
+    likes: number;
     history: Array<Transaction>;
+
     public static NewItem(payload: Item): Item {
         const item = new Item();
         item.id = payload.id;
@@ -41,26 +43,34 @@ export class Item {
         item.image = payload.image;
         item.location = payload.location;
         item.price = payload.price;
-        item.owner = context.sender;
+        item.owner = context.predecessor;
         item.isItemListed = true;
         item.history = new Array<Transaction>();
+        item.likes = 0;
+
+        item.addListing();
+
         return item;
+    }
+
+    public addLike(): void {
+        this.likes++;
     }
 
     public removeListing(): void {
         this.isItemListed = false;
-        this.newHistory(tranType.REMOVE)
+        this.newHistory(TranType.REMOVE)
     }
 
     public addListing(): void {
-        this.newHistory(tranType.ADD);
+        this.newHistory(TranType.ADD);
 
         //add to user items
         const userItems = getUserItems(this.owner);
 
         if (!userItems.checkItem(this.id)) {
             userItems.addItem(this.id)
-        };
+        }
 
         updateUserItems(this.owner, userItems)
     }
@@ -69,7 +79,7 @@ export class Item {
         this.price = newPrice;
         this.location = newLocation
         this.isItemListed = true;
-        this.addListing();
+        this.newHistory(TranType.ADD);
     }
 
     public buyListing(): void {
@@ -86,12 +96,12 @@ export class Item {
         this.owner = context.predecessor
         this.isItemListed = false;
 
-        this.newHistory(tranType.BUY)
+        this.newHistory(TranType.BUY)
     }
 
-    private newHistory(TranType: tranType): void {
+    private newHistory(tranType: TranType): void {
         var price: u128;
-        if (TranType == tranType.REMOVE) {
+        if (tranType == TranType.REMOVE) {
             price = u128.from(0);
         } else {
             price = this.price;
@@ -101,8 +111,8 @@ export class Item {
 
         const newTransaction: Transaction = {
             id: id,
-            type: TranType,
-            from: context.sender,
+            type: tranType,
+            from: context.predecessor,
             price: price,
             createdAt: context.blockTimestamp
         }
