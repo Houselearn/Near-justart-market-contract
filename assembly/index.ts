@@ -15,16 +15,20 @@ export function buyItem(itemId: string): void {
     if (item == null) {
         throw new Error("item not found");
     }
+    if(!item.isItemListed){
+        throw new Error("item not listed");
+    }
     if (item.price.toString() != context.attachedDeposit.toString()) {
-        throw new Error("attached deposit should be greater than the item's price");
+        throw new Error("attached deposit should be equal to the item's price");
     }
     /*
         `ContractPromiseBatch` is used here to create a transaction to transfer the money to the seller
         The amount of money to be used in the transaction is taken from `context.attachedDeposit` 
         which is defined by `--depositYocto=${AMOUNT}` parameter during the invocation 
     */
-    item.buyListing()
     ContractPromiseBatch.create(item.owner).transfer(u128.sub(context.attachedDeposit, storageFee));
+
+    item.buyListing()
     itemsStorage.set(item.id, item);
 }
 
@@ -39,20 +43,18 @@ export function addNewItem(item: Item): void {
     }
 
     const newItem = Item.NewItem(item);
-
-    newItem.addListing();
-
     itemsStorage.set(item.id, newItem);
 
     logging.log(item.id);
 }
 
 /**
- * 
+ *
  * A function that relists an existing item on the item with a new price
- * 
+ *
  * @param itemId - an identifier of a item to be listed
  * @param newPrice - new price of item
+ * @param newLocation - new location of the item
  */
 export function relistItem(itemId: string, newPrice: u128, newLocation: string): void {
     const item = getItem(itemId);
@@ -89,6 +91,25 @@ export function unlistItem(itemId: string): void {
     }
 
     item.removeListing()
+    itemsStorage.set(item.id, item);
+}
+
+/**
+ *
+ * A function that add a like to given art
+ *
+ * @param id - an identifier of a item to be liked
+ */
+export function likeItem(id: string): void {
+    const item = getItem(id);
+    if (item == null) {
+        throw new Error("item not found");
+    }
+    if (item.owner == context.predecessor.toString()) {
+        throw new Error("Cannot put likes to your own items");
+    }
+
+    item.addLike();
     itemsStorage.set(item.id, item);
 }
 
